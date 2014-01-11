@@ -1,0 +1,1181 @@
+
+<body name="bod" style="font-family:'Courier New';">
+<style>
+.player{
+color:red;
+}
+.hurt{
+color:#05c447;
+}
+.upgrade{
+color:#0000FF;
+}
+#main{
+width:100%;
+height: 500px;
+}
+#log{
+width:100%;
+height: 500px;
+overflow-y:scroll;
+vertical-align:text-top;
+text-align:left;
+}
+#parent_table{
+width:100%;
+}
+
+#parent_table td{
+vertical-align:text-top;
+text-align:left;
+width:50%;
+}
+</style>
+<table id="parent_table"><tr><td><h3>Minotaur vs. Orcs</h3>
+<div  id="main">
+</div></td><td><h3>Log</h3><div id="log"></div></td></tr></table>
+<div>
+<hr />
+
+<table>
+
+<tr><td>Move:</td><td>Q7&nbsp;W8&nbsp;E9<br />&nbsp;\&nbsp;|&nbsp;/&nbsp;<br />A4-S-D6<br />&nbsp;/&nbsp;|&nbsp;\&nbsp;<br />Z1&nbsp;X2&nbsp;E3</td></tr>
+<tr><td>Wait:</td><td>. or S</td></tr>
+<tr><td>Heal:</td><td>H (+1HP,-10 Turns - You may be attacked)</td></tr>
+<tr><td><b>Key:</b></td><td></td></tr>
+<tr><td>O - Orc&nbsp;&nbsp;&nbsp;<br /><span class="hurt">O</span> - Injured Orc</td><td>M - Minotaur(You)</td></tr>
+<tr><td># - Wall&nbsp;&nbsp;</td><td>. - Open Ground</td></tr>
+
+<tr><td>? - Unexplored</td><td><span class="upgrade">&amp;</span> - Upgrade</td></tr>
+<tr><td>Weapon Damage:</td><td>1d6 &nbsp;&nbsp;- one 6 sided die<br />2d3+1 - (two 3 sided dice) + 1</td></tr>
+<tr><td>Weapon Mods:</td><td>LS - Life Steal<br />&nbsp;C - Critical Hit (x2 Dmg)<br />&nbsp;D - Defense</td></tr>
+</table>
+<br />Minotaur - You are a Minotaur, these strange creatures are entering your lair.<br />
+You must remove them, or die! How far can you make it?<br />
+Dialog popups occur on weapon drops and death.<br />
+Created by: Greg Billings (lds.kidintx AT gmail DOT com)
+</div>
+</body>
+<script>
+window.onkeydown = function(event){
+	do_logic(event);
+	draw_board();
+}
+var entities = new Array();
+var first_empty_entity = 1;
+var default_width = 30;
+var default_height = 20;
+var dmg_mod_max_rand = 5010;
+var weap_drop_max_rand = 15790;
+var cur_level = 1;
+var sudden_death = 0;
+var width = default_width;
+var height = default_height;
+var num_entities_tot = 5 + parseInt((height*width)/40);
+var map = new Array();
+var visited = new Array();
+var djikstra = new Array();
+var djikstra_flee = new Array();
+var weap_mod_loc = {'x':0,'y':0};
+var pics = new Array();
+var message = "";
+var help_string = "";
+var cleared = false;
+//0 - wander AI  1 - approach player AI (these are not in use... yet)
+var enemy_templates = new Array({'name':'Kobold','life':4,'exp_min':1,'exp_max':2,'weapon_min':0,'weapon_max':2,"ai":0,"diff":0},
+								{'name':'Orc','life':5,'exp_min':1,'exp_max':3,'weapon_min':0,'weapon_max':4,"ai":0,"diff":0},
+								{'name':'Troll','life':9,'exp_min':2,'exp_max':5,'weapon_min':2,'weapon_max':5,"ai":0,"diff":1});
+var weapons = new Array({"name":"knife","dmg":"1d3"},{"name":"gladius","dmg":"2d2"},{"name":"axe","dmg":"1d5"},{"name":"short sword","dmg":"1d5"},{"name":"sword","dmg":"1d6"},{"name":"mace","dmg":"2d3"},{"name":"flail","dmg":"1d7"},{"name":"nunchucks","dmg":"2d4"},{"name":"spiked knuckles","dmg":"1d8"},{"name":"Scimitar","dmg":"3d3"},{"name":"hammer","dmg":"1d12"},{"name":"scythe","dmg":"2d6"},{"name":"katana","dmg":"8d2"},{"name":"great sword","dmg":"3d6"},{"name":"sword of fire","dmg":"4d5"},{"name":"Thor's hammer","dmg":"1d24"},{"name":"blood letter","dmg":"4d6"},{"name":"staff of lightning","dmg":"2d16"},{"name":"axe of decapitation","dmg":"7d7"},{"name":"The Patriarch","dmg":"7d10"});
+//on death, a number up to 15789 is randomly chosen... whichever it is less than, it will spawn the item in this list, or nothing.
+var drop_chance = new Array(5263,4563,3913,3363,2763,2263,1813,1413,1063,763,513,313,163,63,48,35,24,15,8,3);
+//these are the chances to add a + dmg modifier to a weapon 10% chance of any modifier (630)
+var q_dmg_chance = new Array(501,246,119,56,25,10,3);
+var dmg_modifier = new Array('+1','+2','+3','+5','+7','+10','+15');
+/*
+D# - defense # dmg ... dmg taken cannot go below 1
+L## - life steal ##%
+C## - Critical ##%
+
+*/
+var num_mods = new Array(1,1,2,2,3,3,4,4,5,6);
+var weap_mods_dist = new Array(4085,2037,1013,501,246,119,56,25,10,3);
+var defense_mods = new Array(1,2,3,4,5,6,7,8,9,10);
+var life_steal_mods = new Array(5,10,15,20,25,30,35,40,45,50);
+var crit_mods = new Array(5,10,15,20,25,30,35,40,45,50);
+init();
+
+
+function init()
+{
+
+	cur_level = 1;
+	width = default_width;
+	height = default_height;
+	maze();
+	var z = get_open_spot();
+	weap_mod_loc.x = z.x;
+	weap_mod_loc.y = z.y;
+	num_entities_tot = 5 + parseInt((height*width)/40);
+	holes(parseInt(width*height*0.075));
+	sudden_death = parseInt(default_width * default_height * 1.35);
+	message = "Welcome to Minotaur!";
+	help_string = "";
+	entities = new Array();
+	entities = new Array(num_entities_tot);
+
+	for(var x = 0; x < num_entities_tot;x++)
+	{
+		var t = get_open_spot();
+		entities[x] = {'mods':"",'life_steal':0,'crit':0,'defense':0,'turn':0,'x':t.x,'y':t.y,'life_cur':10,'life_max':10,'name':'Player','pic':'<span class="player">M</span>', 'weapon':'knife','dmg':'1d3','exp':0,'reward':4,'ai':0};
+	}
+	first_empty_entity = 1;
+	for(var i = 0; i < num_entities_tot-1;i++)
+	{
+		entities[first_empty_entity].reward = rand(3)+1;
+		var t = get_open_spot();
+		entities[first_empty_entity].x = t.x;
+		entities[first_empty_entity].y = t.y;
+		entities[first_empty_entity].life_cur = 5 + entities[first_empty_entity].reward;
+		entities[first_empty_entity].life_max = 5 + entities[first_empty_entity].reward;
+		entities[first_empty_entity].name='Orc';
+		entities[first_empty_entity].pic = 'O';
+		entities[first_empty_entity].weapon = 'axe';
+		entities[first_empty_entity].dmg = '1d5';
+		entities[first_empty_entity].exp = 0;
+		entities[first_empty_entity].turn = 0;
+		entities[first_empty_entity].ai = 0;
+		entities[first_empty_entity].life_steal = 0;
+		entities[first_empty_entity].crit = 0;
+		entities[first_empty_entity].defense = 0;
+		entities[first_empty_entity].mods = "";
+		
+		first_empty_entity++;
+	}
+	sight();
+	for( var x = 0; x < first_empty_entity;x++)
+	{
+		if(x==0||(x>0&&visited[entities[x].x][entities[x].y]==3))
+		pics[entities[x].x][entities[x].y] = entities[x].pic;
+
+	}
+	draw_board();
+}
+
+function next_level()
+{
+	if(width > 5)
+	width-=1;
+	if(height > 5)
+	height -=1;
+	maze();
+	var z = get_open_spot();
+	weap_mod_loc.x = z.x;
+	weap_mod_loc.y = z.y;
+	cur_level++;
+	sudden_death = parseInt(width * height * 1.35);
+	num_entities_tot = 5 + parseInt((height*width)/40);
+	holes(parseInt(width*height*0.075));
+	var t = get_open_spot();
+	entities[0].x = t.x;
+	entities[0].y = t.y;
+	entities[0].life_cur += Math.ceil(entities[0].life_max/2);
+	if(entities[0].life_cur > entities[0].life_max)
+	entities[0].life_cur = entities[0].life_max;
+	entities[0].turn = 0;
+	first_empty_entity = 1;
+	for(var i = 0; i < num_entities_tot-1;i++)
+	{
+		entities[first_empty_entity].reward = rand(3)+1 + parseInt(cur_level);
+		var t = get_open_spot();
+		entities[first_empty_entity].x = t.x;
+		entities[first_empty_entity].y = t.y;
+		entities[first_empty_entity].life_cur = (cur_level) + 4 + entities[first_empty_entity].reward;
+		entities[first_empty_entity].life_max = (cur_level) + 4 + entities[first_empty_entity].reward;
+		entities[first_empty_entity].name='Orc';
+		entities[first_empty_entity].pic = 'O';
+		entities[first_empty_entity].weapon = 'axe';
+		entities[first_empty_entity].dmg = '1d'+(4 + (cur_level));
+		entities[first_empty_entity].exp = 0;
+		entities[first_empty_entity].turn = 0;
+		entities[first_empty_entity].ai = 0;
+		entities[first_empty_entity].life_steal = 0;
+		entities[first_empty_entity].crit = 0;
+		entities[first_empty_entity].defense = 0;
+		entities[first_empty_entity].mods = "";
+		
+		first_empty_entity++;
+	}
+}
+
+function count_live_enemies()
+{
+	var ct = 0;
+	for(var x = 1; x < num_entities_tot;x++)
+	{
+		if(entities[x].life_cur > 0)
+			ct++;
+	}
+	return ct;
+}
+
+function get_open_spot()
+{
+	var cont = true;
+	do{
+		cont = false;
+		var pt = {'x':rand(width),'y':rand(height)};
+		if(map[pt.x][pt.y]=='.')
+		{
+			for(var z = 0; z < num_entities_tot;z++)
+			{
+				if(entities[z] != null && entities[z].x==pt.x && entities[z].y==pt.y)
+				{
+					cont = true;
+				}
+			}
+		}
+		else
+		{
+			cont = true;
+		}
+	}while(cont);
+
+return pt;
+}
+
+function setup_flee_djikstra(optomize)
+{
+	for(var x = 0; x < width;x++)
+	{
+		
+		for(var y = 0; y < height;y++)
+		{
+			if(djikstra[x][y]!=9999)
+				djikstra_flee[x][y] = djikstra[x][y]* optomize;
+			else
+				djikstra_flee[x][y] = 9999;
+		}
+	}
+	calc_djikstra(djikstra_flee);
+}
+
+function setup_djikstra()
+{
+	//initialize
+	for(var x = 0; x < width;x++)
+	{
+		
+		for(var y = 0; y < height;y++)
+		{
+			djikstra[x][y] = 9999;
+		}
+	}
+	djikstra[entities[0].x][entities[0].y] = 0;
+	calc_djikstra(djikstra);
+	//alert(visualize);
+	//alert(num);
+}
+
+function calc_djikstra(d_map)
+{
+	var change_made = true;
+	var low_neighbor = 0;
+	var visualize = "";
+	var num = 0;
+	while(change_made)
+	{
+		num++;
+		visualize = "";
+		change_made = false;
+		for(var x = 0; x < width;x++)
+		{
+			
+			for(var y = 0; y < height;y++)
+			{
+				if(map[x][y]=='.')
+				{
+					low_neighbor = djikstra_lowest_neighbor(d_map,x,y);
+					if(Math.abs(d_map[x][y] - low_neighbor) > 1 )
+					{
+						d_map[x][y] = low_neighbor+1;
+						change_made = true;
+					}
+				}
+				visualize +=d_map[x][y].toString().substr(0,1);
+			}
+			visualize +="\n";
+		}
+	}
+}
+
+function djikstra_lowest_neighbor(d_map,x,y)
+{
+	var lowest_neighbor = 9999;
+	for(var dx = -1;dx < 2;dx++)
+	{
+		for(var dy = -1; dy < 2;dy++)
+		{
+			if(dx == 0 && dy == 0)
+			{
+			
+			}
+			else if(x + dx > -1 && x + dx < width && 
+			y + dy < height && y + dy > -1 &&
+			map[x+dx][y+dy]=='.' && d_map[x+dx][y+dy] < lowest_neighbor)
+			{
+				lowest_neighbor = d_map[x+dx][y+dy];
+			}
+		}
+	}
+	return lowest_neighbor;
+}
+
+function djikstra_move_lowest_neighbor(d_map,x,y)
+{
+	var lowest_neighbor = Array(9);
+	var cur_neighbor = 0;
+	for(var i = 0; i < 8;i++)
+	lowest_neighbor[i] = {'x':0,'y':0};
+	var low_val = 9999;
+	for(var dx = -1;dx < 2;dx++)
+	{
+		for(var dy = -1; dy < 2;dy++)
+		{
+			if(dx==0&&dy==0)
+			{
+			
+			}
+			else if(x + dx > -1 && x + dx < width && 
+			y + dy < height && y + dy > -1 &&
+			map[x+dx][y+dy]=='.')
+			{
+				if(d_map[x+dx][y+dy] < low_val)
+				{
+					lowest_neighbor[0].x = dx;
+					lowest_neighbor[0].y = dy;
+					low_val = d_map[x+dx][y+dy];
+					cur_neighbor = 0;
+				}
+				else if(d_map[x+dx][y+dy] == low_val)
+				{
+					cur_neighbor++;
+					lowest_neighbor[cur_neighbor].x = dx;
+					lowest_neighbor[cur_neighbor].y = dy;
+				}
+			}
+		}
+	}
+	if(cur_neighbor == 0)
+		return lowest_neighbor[0];
+	else
+	{
+		return lowest_neighbor[rand(cur_neighbor+1)];
+	}
+}
+
+function maze()
+{
+	//initialize variables
+	stack_open_points = new Array(width * height);
+	for(var i = 0; i < width * height; i++)
+	{
+		stack_open_points[i] = {'x':-1,'y':-1};
+	}
+	stack_open_points[0].x = rand(width-6)+3; 
+	stack_open_points[0].y = 0;
+	var next_stack_elem = 1;
+	var maze_visited = new Array();
+	maze_visited = new Array(width);
+	map = new Array(width);
+	djikstra = new Array(width);
+	djikstra_flee = new Array(width);
+	pics = new Array(width);
+	visited = new Array(width);
+	for(var x = 0; x < width;x++)
+	{
+		djikstra[x] = new Array(height);
+		djikstra_flee[x] = new Array(height);
+		maze_visited[x] = new Array(height);
+		map[x] = new Array(height);
+		pics[x] = new Array(height);
+		visited[x] = new Array(height);
+		for(var y = 0; y < height;y++)
+		{
+			djikstra[x][y] = 9999;
+			djikstra_flee[x][y] = 9999;
+			map[x][y] = '#';
+			maze_visited[x][y] = false;
+			pics[x][y] = map[x][y];
+			visited[x][y] = 0;
+		}
+	}
+	maze_visited[stack_open_points[0].x][stack_open_points[0].y] = true;
+	//begin "recursive" stacking.... this basically goes until the stack is empty & all maze_visit checks come back as 1
+	//can only carve a spot out if the other 3 around it are still walls. (e.g. move south, then the south,east, and west spots need to be walls)
+	var runs= 0;
+
+	while(next_stack_elem > 0)
+	{
+		//alert("Next stack: ["+stack_open_points[next_stack_elem-1].x+","+stack_open_points[next_stack_elem-1].y+"]");
+		var p = {'x': stack_open_points[next_stack_elem - 1].x,'y':stack_open_points[next_stack_elem - 1].y};
+		next_stack_elem--;
+		//if(validate_move(p))
+		//{
+			//maze_visited[p.x][p.y] = true;
+			//map[p.x][p.y]='.';
+			
+			var arr = new Array(0,1,2,3);
+			var order = new Array(-1,-1,-1,-1);
+			for(var i = 0; i < 4; i++)
+			{
+				var lk = 0;
+				var in_list = true;
+				while(in_list)
+				{
+					in_list = false;
+					lk = arr[rand(4)]; // 0 to 3
+					for(var k = 0; k < 4;k++)
+					{
+						if(order[k] == lk)
+						{
+							in_list = true;
+						}
+					}
+				}
+				order[i] = lk;
+				//check if lk currently in list
+			
+				switch(order[i])
+				{
+					case 0:
+					if(p.x > 0 && maze_visited[p.x -1][p.y] == false && validate_move(p,-1,0))
+					{
+						stack_open_points[next_stack_elem].x = p.x - 1;
+						stack_open_points[next_stack_elem].y = p.y;
+						map[p.x-1][p.y]='.';
+						maze_visited[p.x-1][p.y] = true;
+						next_stack_elem++;
+						
+					}
+					break;
+					case 1:
+					if(p.y > 0 && maze_visited[p.x][p.y-1] == false && validate_move(p,0,-1))
+					{
+						stack_open_points[next_stack_elem].x = p.x;
+						stack_open_points[next_stack_elem].y = p.y - 1;
+						map[p.x][p.y-1]='.';
+						maze_visited[p.x][p.y-1] = true;
+						
+						next_stack_elem++;
+						
+					}
+					break;
+					case 2:
+					if(p.y < height - 1 && maze_visited[p.x][p.y+1] == false && validate_move(p,0,1))
+					{
+						stack_open_points[next_stack_elem].x = p.x;
+						stack_open_points[next_stack_elem].y = p.y + 1;
+						map[p.x][p.y+1]='.';
+						maze_visited[p.x][p.y+1] = true;
+						next_stack_elem++;
+						
+					}
+					break;
+					case 3:
+					if(p.x < width - 1 && maze_visited[p.x  + 1][p.y] == false && validate_move(p,1,0))
+					{
+						stack_open_points[next_stack_elem].x = p.x + 1;
+						stack_open_points[next_stack_elem].y = p.y;
+						map[p.x+1][p.y]='.';
+						maze_visited[p.x+1][p.y] = true;
+						next_stack_elem++;
+						
+					}
+					break;
+				}
+			}
+		//}
+		//alert('next stack elem: '+next_stack_elem);
+		if(runs < next_stack_elem)
+		runs = next_stack_elem;
+	}
+}
+
+//this function checks to make sure that wherever you are moving, you won't intersect another maze. returns true if it is fine.
+function validate_move(point,dx,dy)
+{
+	dx = typeof(dx) != 'undefined' ? dx : 0;
+	dy = typeof(dy) != 'undefined' ? dy : 0;
+	if(point.x > -1 && point.x < width && point.y > -1 && point.y < height)
+	{ //the point you are moving to is on the map!
+		//intialize 4 corners
+		var count_right = 0;
+		var top_left = {'x':0, 'y':0};
+		var bottom_right = {'x':0,'y':0};
+		if(dx==-1)
+		{
+			top_left.x = -2;
+			top_left.y = -1;
+			bottom_right.x = 0;
+			bottom_right.y = 2;
+		}
+		else if(dx==1)
+		{
+			top_left.x = 1;
+			top_left.y = -1;
+			bottom_right.x = 3;
+			bottom_right.y = 2;
+		}
+		else if(dy==-1)
+		{
+			top_left.x = -1;
+			top_left.y = -2;
+			bottom_right.x = 2;
+			bottom_right.y = 0;
+		}
+		else if(dy==1)
+		{
+			top_left.x = -1;
+			top_left.y = 1;
+			bottom_right.x = 2;
+			bottom_right.y = 3;
+		}
+		else if(dx==0 && dy == 0)
+		{
+			top_left.x = -1;
+			top_left.y = -1;
+			bottom_right.x = 2;
+			bottom_right.y = 2;
+		}
+		for(var x = top_left.x;x < bottom_right.x;x++)
+		{
+			for(var y = top_left.y; y < bottom_right.y;y++)
+			{
+				if(point.x + x <= width-1 && point.x + x >= 0 && point.y + y <= height - 1 && point.y + y >= 0)
+				{
+					if( map[point.x + x][point.y +y]=='#')
+						count_right++;
+				}				
+			}
+		}
+		//if(point.x < 1 || map[point.x - 1][point.y]=='#') count_wall++;
+		//if(point.x > width-2 || map[point.x + 1][point.y]=='#') count_wall++;
+		//if(point.y < 1 || map[point.x][point.y - 1]=='#') count_wall++;
+		//if(point.y > height-2 || map[point.x][point.y + 1]=='#') count_wall++;
+		
+		
+		//alert("count_wall: "+count_wall);
+		if(count_right > 5)
+		return true;
+	}
+	return false;
+}
+
+
+function holes(num)
+{
+	var fails = 0;
+	var pt = {'x':rand(width-2)+1,'y':rand(height-2)+1};
+	for(var x = 0; x < num;x++)
+	{
+		while(map[pt.x][pt.y]!='#' && fails < 100)
+		{
+			fails++;
+			pt = {'x':rand(width-2)+1,'y':rand(height-2)+1};
+		}
+		map[pt.x][pt.y] = '.';
+	}
+}
+
+function inc_turn(id)
+{
+	entities[id].turn++;
+	if(id==0)
+	{
+		if(entities[id].turn > sudden_death)
+		{
+			entities[id].life_cur--;
+			message+="<span class=\"player\">Sudden Death -1 HP!</span> ";
+		}
+	}
+}
+
+function rand(max)
+{
+	return Math.floor(Math.random()*max);
+}
+
+function do_logic(e)
+{
+	if(entities[0].life_cur > 0)
+	{
+		
+		help_string = "Key Pressed: "+e.keyCode;
+		message = "";
+		switch(e.keyCode)
+		{
+			case 80: rand_drop();
+				break;
+			case 83:
+			case 190: inc_turn(0);
+				break;
+			case 32:
+			case 27: document.getElementById("main").innerHTML = "This really is quite simple. You are the <span class=\"player\">M</span> and you must run<br /> around destroying all the enemies, at which point You will<br />be taken to the next level. You only have so many turns to<br />complete a level. Should you run out of turns, sudden death<br />occurs and you lose 1 hp per move. You get 20 bonus points<br />+ points for turns left when you complete a level. You also<br />heal half your maximum life's HP when you finish a level.<br />Injured monsters are <span class=\"hurt\">colored</span>.<br />Press Enter to Return."; cleared = true;
+				break;
+			case 72: entities[0].life_cur+=1;
+					 if(entities[0].life_cur > entities[0].life_max)
+					 entities[0].life_cur = entities[0].life_max;
+					 for(var x = 0; x < 10;x++)
+					 {
+						inc_turn(0);
+					 }
+					 break;
+			case 37: //move left 
+			case 52:
+			case 65:
+			case 100:
+				move_entity(-1,0,0);
+				break;
+			case 39: //move right
+			case 54:
+			case 68:
+			case 102:
+				move_entity(1,0,0);
+				break;
+			case 104:
+			case 56:
+			case 87:
+			case 38: //move up
+				move_entity(0,-1,0);
+				break;
+			case 98:
+			case 88:
+			case 50:
+			case 40: //move down
+				move_entity(0,1,0);
+				break;
+			case 49:
+			case 90:
+			case 97: //down left
+				move_entity(-1,1,0);
+				break;
+			case 51:
+			case 67:
+			case 99: //down right
+				move_entity(1,1,0);
+				break;
+			case 55:
+			case 81:
+			case 103: //up left
+				move_entity(-1,-1,0);
+				break;
+			case 57:
+			case 69:
+			case 105: //up right
+				move_entity(1,-1,0);
+				break;
+		}
+		if(count_live_enemies()  < 1)
+		{
+			
+			var exp_award = 20 + parseInt((sudden_death - entities[0].turn)/10);
+			message = "<span class=\"player\">Level Complete... +"+exp_award+" EXP!</span> ";
+			help_string = "Next Level!";
+			award_exp(exp_award,0);
+			next_level();
+		}
+		else if(entities[1].turn < entities[0].turn)
+		{
+			setup_djikstra();
+			setup_flee_djikstra(-1.2);
+			for(var p = 1; p < first_empty_entity;p++)
+			{
+				if(entities[p].life_cur < 1)
+				{
+					entities[p].turn = entities[0].turn;
+				}
+				while(entities[p].life_cur > 0 && entities[p].turn < entities[0].turn)
+				{
+					switch(entities[p].ai)
+					{
+						case 0:
+							switch(rand(3))
+							{
+								case 0:
+								move_entity((rand(2)*2)-1,0,p);
+								break;
+								case 1:
+								move_entity(0,(rand(2)*2)-1,p);
+								break;
+								case 2:
+								move_entity((rand(2)*2)-1,(rand(2)*2)-1,p);
+								break;
+
+							}
+							break;
+						case 1: //persuing the player
+							var n = djikstra_move_lowest_neighbor(djikstra,entities[p].x,entities[p].y);
+							move_entity(n.x,n.y,p);
+
+							break;
+						case 2: //fleeing from the player
+							var n = djikstra_move_lowest_neighbor(djikstra_flee,entities[p].x,entities[p].y);
+							move_entity(n.x,n.y,p);
+							
+							break;
+					}	
+				}
+			}
+		}		
+		//de_sight();
+		sight();
+	}
+	else
+	{
+		help_string = "<span class=\"player\">You Have Lost. Score: "+entities[0].exp+". Press any Key to restart.</span>";
+		
+		if(entities[0].life_cur == -1000)
+		{
+			init();
+		}
+		else
+		{
+			alert("You have failed! Score: "+entities[0].exp+".");
+			entities[0].life_cur = -1000;
+		}
+	}
+	
+}
+
+function enemy_at(x,y,my_id)
+{
+	
+	for( var i = 0; i < first_empty_entity;i++)
+	{
+		if(i != my_id && entities[i].life_cur > 0 && entities[i].x==x && entities[i].y==y)
+			return i;
+	}
+	return -1;
+}
+
+function move_entity(dx,dy,id)
+{	
+	var e_id = enemy_at(entities[id].x + dx,entities[id].y + dy,id);
+	if(entities[id].x + dx > -1 && entities[id].x + dx < width &&
+	entities[id].y + dy > -1 && entities[id].y + dy < height &&
+	map[entities[id].x + dx][entities[id].y + dy]=='.' && e_id==-1)
+	{
+		entities[id].y +=dy;
+		entities[id].x +=dx;
+		inc_turn(id);
+	}
+	else if(e_id>-1)
+	{
+		var crit_u = false;
+		var life_steal_u = false;
+		var defense_u = false;
+		if(id==0 || e_id == 0)
+		{
+			var d_deal = calc_damage(entities[id].dmg);
+			//calculate critical hit
+			if(entities[id].crit > 0 && rand(100) < entities[id].crit)
+			{
+				d_deal *=2;
+				crit_u = true;
+			}
+			//calculate defense
+			if(entities[e_id].defense > 0)
+			{
+				d_deal -= entities[e_id].defense;
+				if(d_deal < 1)
+				d_deal = 1;
+				defense_u = true;
+			}
+			//calculate life steal
+			if(entities[id].life_steal > 0)
+			{
+				entities[id].life_cur += Math.ceil(d_deal * (entities[id].life_steal/100));
+				if(entities[id].life_cur > entities[id].life_max)
+				entities[id].life_cur = entities[id].life_max;
+				life_steal_u = true;
+			}
+			entities[e_id].life_cur -= d_deal;
+			if(cur_level > 4 && entities[e_id].life_cur/entities[e_id].life_max <= .7)
+			{
+				entities[e_id].ai = 1;
+			}
+			if(cur_level > 6 && entities[e_id].life_cur/entities[e_id].life_max < .3)
+			{
+				entities[e_id].ai = 2;
+			}
+		}
+		inc_turn(id);
+		if(id==0)
+		{
+			if(entities[e_id].life_cur > 0)
+			{
+				if(entities[e_id].pic.length < 2)
+				{
+					//wounded monster changes color and is enraged and tries to always attack you.
+					entities[e_id].pic = "<span class=\"hurt\">"+entities[e_id].pic +"</span>";
+					//entities[e_id].ai = 1;
+				}
+				message += 'you strike The '+entities[e_id].name+" for "+d_deal+" hp! "+print_life(e_id,false) + " HP left. ";
+			}
+			else
+			{	
+				message += 'you strike The '+entities[e_id].name+" for "+d_deal+" hp! It is dead! +"+entities[e_id].reward+" Exp. ";
+				award_exp(entities[e_id].reward,id);
+				rand_drop();
+			}
+		}
+		else if(e_id == 0)
+		{
+			
+			message += 'The '+entities[id].name+ " strikes You for "+d_deal+ " hp! ";
+		}
+		if(crit_u)
+			message += 'Critical Hit! ';
+		if(life_steal_u)
+			message += Math.ceil(d_deal * (entities[id].life_steal/100))+' hp Stolen! ';
+		if(defense_u)
+			message += ' After '+entities[e_id].defense+ " hp dmg defelected. ";
+	}
+	if(id==0 && entities[id].x == weap_mod_loc.x && entities[id].y == weap_mod_loc.y)
+	{
+		weap_mod_loc.x = -1;
+		weap_mod_loc.y = -1;
+		message += "<span class=\"upgrade\">Weapon modification found! ";
+		switch(rand(6))
+		{
+			case 0: message +="+1d"; entities[0].dmg = (parseInt(entities[0].dmg.substr(0,entities[0].dmg.indexOf('d')))+1).toString() + entities[0].dmg.substr(entities[0].dmg.indexOf('d'));
+			break;
+			case 1: message +="+d2"; var p_dmg = entities[0].dmg.split('d'); if(p_dmg[1].indexOf('+') > -1){ p_d_ext = p_dmg[1].split('+'); entities[0].dmg = p_dmg[0] + "d" + (parseInt(p_d_ext[0])+2).toString() + "+" + p_d_ext[1]; } else { entities[0].dmg = p_dmg[0] + "d" + (parseInt(p_dmg[1])+2).toString(); }
+			break;
+			case 2: message += "+3"; var p_dmg = entities[0].dmg.split('d'); if(p_dmg[1].indexOf('+') > -1){ p_d_ext = p_dmg[1].split('+'); entities[0].dmg = p_dmg[0] + "d" + p_d_ext[0] +"+" + (parseInt(p_d_ext[1])+3).toString(); } else { entities[0].dmg += "+3";  }
+			break;
+			case 3: var rand_add = rand(4)+5; message +="LS +"+rand_add; entities[0].life_steal +=rand_add; 
+			break;
+			case 4: var rand_add = rand(4)+5; message +="C +"+rand_add; entities[0].crit +=rand_add; 
+			break;
+			case 5: var rand_add = rand(2)+1; message +="D +"+rand_add; entities[0].defense +=rand_add; 
+			break;
+		
+		}
+			var first_mod = true;
+			entities[0].mods = "";
+			if(entities[0].life_steal > 0)
+			{
+				if(first_mod)
+				{
+					first_mod = false;
+					entities[0].mods = "LS:"+entities[0].life_steal;
+				}
+				else
+				entities[0].mods += " LS:"+entities[0].life_steal;
+			}
+			if(entities[0].crit > 0)
+			{
+				if(first_mod)
+				{
+					first_mod = false;
+					entities[0].mods = "C:"+entities[0].crit;
+				}
+				else
+				entities[0].mods += " C:"+entities[0].crit;
+			}
+			if(entities[0].defense > 0)
+			{
+				if(first_mod)
+				{
+					first_mod = false;
+					entities[0].mods = "D:"+entities[0].defense;
+				}
+				else
+				entities[0].mods += " D:"+entities[0].defense;
+			}
+		
+		message +="!</span> ";
+	}
+}
+
+function rand_drop()
+{
+	var dn = rand(weap_drop_max_rand);
+	if(dn < drop_chance[0])
+	{
+		for(var x = drop_chance.length-1; x > -1 ;x--)
+		{
+			if(drop_chance[x] > dn)
+			{
+				dn = x;
+				x = -2;
+			}
+		}
+		var weap_c = {'dmg' : weapons[dn].dmg,'name':weapons[dn].name};
+		
+		dn = rand(dmg_mod_max_rand);
+		if(dn < q_dmg_chance[0])
+		{
+			for(var x = q_dmg_chance.length-1; x > -1 ;x--)
+			{
+				if(q_dmg_chance[x] > dn)
+				{
+					dn = x;
+					x = -2;
+				}
+			}
+			weap_c.dmg +=dmg_modifier[dn];
+		}
+		
+		if(rand(100)<20)
+		{//magic
+			/*
+			var num_mods = new Array(1,1,1,2,2,2,3,3,3,4);
+			var weap_mods_dist = new Array(4085,2037,1013,501,246,119,56,25,10,3);
+			var defense_mods = new Array(1,2,3,4,5,6,7,8,9,10);
+			var life_steal_mods = new Array(5,10,15,20,25,30,35,40,45,50);
+			var crit_mods = new Array(5,10,15,20,25,30,35,40,45,50);
+			*/
+			var life_steal = 0;
+			var crit = 0;
+			var defense = 0;
+			var get_num_mods = rand(weap_mods_dist[0]);
+			for(var i = num_mods.length-1;i>-1;i--)
+			{
+				if(get_num_mods < weap_mods_dist[i])
+				{
+					get_num_mods = num_mods[i];
+					i = -2;
+				}
+			}
+			
+			for(var p = 0; p < get_num_mods;p++)
+			{
+				var mod_str = rand(weap_mods_dist[0]);
+				for(var i = num_mods.length-1;i>-1;i--)
+				{
+					if(mod_str < weap_mods_dist[i])
+					{
+						mod_str = i;
+						i = -2;
+					}
+				}
+				switch(rand(3))
+				{
+					case 0: //defense 
+						defense += defense_mods[mod_str];
+					break;
+					case 1: //life_steal
+						life_steal +=life_steal_mods[mod_str];
+					break;
+					case 2: //critical hit
+						crit += crit_mods[mod_str];
+					break;
+				}
+				
+			}
+			var mod_string = "";
+			var first_mod = true;
+			if(life_steal > 0)
+			{
+				if(first_mod)
+				{
+					first_mod = false;
+					mod_string = "LS:"+life_steal;
+				}
+				else
+				mod_string += " LS:"+life_steal;
+			}
+			if(crit > 0)
+			{
+				if(first_mod)
+				{
+					first_mod = false;
+					mod_string = "C:"+crit;
+				}
+				else
+				mod_string += " C:"+crit;
+			}
+			if(defense > 0)
+			{
+				if(first_mod)
+				{
+					first_mod = false;
+					mod_string = "D:"+defense;
+				}
+				else
+				mod_string += " D:"+defense;
+			}
+			weap_c.mods = mod_string;
+			weap_c.life_steal = life_steal;
+			weap_c.crit = crit;
+			weap_c.defense = defense;
+		}
+		else
+		{
+			weap_c.mods = "";
+			weap_c.life_steal = 0;
+			weap_c.crit = 0;
+			weap_c.defense = 0;
+		}
+		//dn now has the item you are looking at.
+		var r = confirm("The Monster dropped a weapon! "+weap_c.name+"("+weap_c.dmg+")"+weap_c.mods+". Would you like to switch yours for this one?");
+		if(r==true)
+		{
+			
+			entities[0].weapon = weap_c.name;
+			entities[0].dmg = weap_c.dmg
+			entities[0].mods = weap_c.mods;
+			entities[0].life_steal = weap_c.life_steal;
+			entities[0].crit = weap_c.crit;
+			entities[0].defense = weap_c.defense;
+			
+			message+="You equip the "+weap_c.name+"("+weap_c.dmg+")"+weap_c.mods+". ";
+		}
+		else
+		{
+		
+		}
+	}
+
+}
+
+function award_exp(amt,id)
+{
+	var lev_before = get_level(entities[id].exp);
+	entities[id].exp += amt
+	var lev_now = get_level(entities[id].exp);
+	if(id==0 && lev_now!=lev_before)
+	{
+		if(lev_now - lev_before > 0)
+		message += " <span style=\"color:red;\">LEVEL UP!</span> ";
+		else
+		message += " <span style=\"color:red;\">LEVEL DRAINED!!!</span> ";
+		entities[id].life_cur +=3 *(lev_now - lev_before);
+		entities[id].life_max +=3 * (lev_now - lev_before);
+	}
+}
+
+function calc_damage(d_string)
+{
+	var parts = d_string.split('d');
+	var add_on = 0;
+	if(parts[1].indexOf('+')!=-1)
+	{
+		add_on = parseInt(parts[1].split('+')[1]);
+	}
+	var dmg = 0;
+	for(var i = 0; i < parseInt(parts[0]);i++)
+	{
+		dmg += rand(parseInt(parts[1]))+1;
+	}
+	dmg += add_on;
+	return dmg;
+}
+
+function print_life(id,show_full)
+{
+	var life_cur = entities[id].life_cur;
+	if(life_cur < 0)
+	life_cur = 0;
+	if(show_full)
+		return "HP:"+life_cur+"("+entities[id].life_max+")";
+	else
+		return life_cur;
+}
+
+function de_sight()
+{
+	for(var y = 0; y < height;y++)
+	{
+		for(var x = 0; x < width;x++)
+		{
+			if(visited[x][y]>1)
+				visited[x][y] = 1;
+		}
+	}
+}
+
+function sight()
+{
+	for(var x = -1;x < 2;x++)
+	{
+		for(var y = -1; y < 2; y++)
+		{
+			if(x + entities[0].x > -1 && x + entities[0].x < width &&
+			y + entities[0].y > -1 && y + entities[0].y < height)
+			{
+				visited[entities[0].x +x][entities[0].y +y] = 3;
+			}
+		}
+	}
+	
+	
+	
+	for(var x = 0; x < width;x++)
+	{
+		
+		for(var y = 0; y < height;y++)
+		{		
+			pics[x][y] = map[x][y];	
+		}
+	}
+	if(weap_mod_loc.x > -1)
+	{
+		pics[weap_mod_loc.x][weap_mod_loc.y] = '<span class=\"upgrade\">&amp;</span>';
+	}
+	for( var x = 0; x < first_empty_entity;x++)
+	{
+		if(x==0||(entities[x].life_cur > 0 && x>0&&visited[entities[x].x][entities[x].y]==3))
+		pics[entities[x].x][entities[x].y] = entities[x].pic;
+
+	}
+}
+
+function get_level(exp)
+{
+	var level = Math.floor(Math.sqrt(exp/5))+1;
+	return level;
+}
+
+function exp_to_level(exp)
+{
+	var cur_level = get_level(exp);
+	var exp_lev_up = cur_level * cur_level * 5;
+	return exp_lev_up-exp;
+}
+
+
+function draw_board()
+{
+	var content_draw = "";
+	
+	for(var y = 0; y < height;y++)
+	{
+		for(var x = 0; x < width;x++)
+		{
+			if(visited[x][y]>0)
+			content_draw+=pics[x][y];
+			else
+			content_draw+="?";
+		}
+		content_draw+="<br />";
+	}
+	content_draw+=message+"<br /> "+print_life(0,true)+"&nbsp;&nbsp;Level: "+get_level(entities[0].exp)+"(-"+exp_to_level(entities[0].exp)+")&nbsp;&nbsp;Turn: "+entities[0].turn+"("+(sudden_death-entities[0].turn)+" Left)<br />Weapon: "+entities[0].weapon+"("+entities[0].dmg+")"+entities[0].mods+"&nbsp;&nbsp;&nbsp;Enemies Left: "+count_live_enemies()+"<br />Dungeon Level: "+cur_level+"&nbsp;&nbsp;&nbsp;&nbsp;Points: "+entities[0].exp+"<br />"+help_string;
+		
+	if(cleared)
+	{
+		cleared = false;
+	}
+	else
+	{
+		document.getElementById("main").innerHTML = content_draw;
+		if(message == 'Welcome to Minotaur!')
+			document.getElementById("log").innerHTML ="";
+		if(message != "")
+		document.getElementById("log").innerHTML = message + "<br />" + document.getElementById("log").innerHTML; 
+	}
+	message = "";
+}
+</script>

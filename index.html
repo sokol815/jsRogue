@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<title>jsRL</title>
+		<link rel='stylesheet' type='text/css/' href='style.css'></link>
+		<script src="js/jquery-2.0.3.min.js"></script>
+		<script src="js/underscore-min.js"></script>
+		<script src="js/jsRL.js"></script>
+		<script src="js/main.js"></script>
+
+		<script src="js/probabilityArray.js"></script>
+		<script src="js/mapScreen.js"></script>
+		<script src="js/entity.js"></script>
+		<script src="js/item.js"></script>
+		<script src="js/weapon.js"></script>
+		<script src="js/seedrandom.js"></script>
+		<script src='js/interaction.js'></script>
+		<script src='js/monsterDistrib.js'></script>
+		<script type='text/javascript'>
+			window.nRuns = 0;
+			var timeOut;
+			$(document).ready(function(){
+				window.debugging = true;
+				//init with random seed or not.
+				if(!debugging) {
+					console.log('random');
+					Math.seedrandom();
+				} else {
+					Math.seedrandom('5');
+				}
+				window.game = new jsRL.main();
+				game.init();
+				window.onkeydown = function(event){
+					game.loop(event);
+				}
+			});
+		</script>
+	</head>
+	<body>
+		<div class='appWrapper' id='normalGame'>
+			<div id='mapView'></div><div id='messagesView'>&nbsp;</div>
+			</table>
+			<table class='informationTable'>
+				<tr class='informationView'>
+					<td>
+						<div id='hoverInfo'>&nbsp;</div>
+						<table><tr>
+							<td id='baseStats'></td>
+							<td id='stats'></td>
+							<td id='resistances'></td>
+						</tr></table>
+						status: <span id='statusContainer'></span>
+					</td>
+					<td id='personalMenus'>
+						<div class='views'>
+							<span class='active' type='equipment'>Equipment</span>
+							<span type='inventory'>Inventory</span>
+							<span type='spellbook'>Spells</span>
+							<span type='mastery'>Mastery</span>
+							<span type='conduct'>Conduct</span>
+						</div>
+						<div id='equipment'>
+							blechka
+						</div>
+						<div class='inactiveWindow' id='inventory'>
+							testing 2.
+						</div>
+						<div class='inactiveWindow' id='spellbook'>
+							testing 3.
+						</div>
+						<div class='inactiveWindow' id='mastery'>
+							testing.
+						</div>
+						<div class='inactiveWindow' id='conduct'>
+							testing 4.
+						</div>
+					</td>
+				</tr>
+			</table>
+		</div>
+		<div class='appWrapper' id='death' style='display:none'>
+			<div class='death-report'>
+				You have died... you kinda sucked at life.
+			</div> 
+		</div>
+	</body>
+</html>

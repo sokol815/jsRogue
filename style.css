@@ -1,0 +1,181 @@
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, font, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    font-weight: inherit;
+    font-style: inherit;
+    font-size: 100%;
+    font-family: inherit;
+    vertical-align: baseline;
+}
+/* remember to define focus styles! */
+:focus {
+    outline: 0;
+}
+body {
+    line-height: 1;
+    color: white;
+    background: black;
+}
+ol, ul {
+    list-style: none;
+}
+/* tables still need 'cellspacing="0"' in the markup */
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+caption, th, td {
+    text-align: left;
+    font-weight: normal;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+    content: "";
+}
+blockquote, q {
+    quotes: "" "";
+}
+
+hr {
+	margin-top:0px;
+	margin-bottom:0px;
+}
+
+
+/*********** NORMAL CSSS ***************
+************ NORMAL CSSS ***************
+************ NORMAL CSSS ***************/
+
+html{
+	font-family:monospace
+}
+
+.appWrapper{
+	width:1000px;
+	margin-left:auto;
+	margin-right:auto;
+}
+
+#mapView{
+	width:640px;
+	display:inline-block;
+	height:392px;
+	overflow:hidden;
+	text-align: center;
+	color:#555;
+	cursor:pointer;
+	overflow-x:hidden;
+}
+
+#mapView span{
+	display:inline-block;
+	line-height:14px;
+}
+
+#messagesView{
+	position:absolute;
+	top:0px;
+	padding:0;
+	width:354px;
+	height:392px;
+	display:inline-block;
+	overflow-y:scroll;
+	padding-left:5px;
+	border-left:1px solid white;
+}
+
+.informationTable {
+	width:1000px;
+}
+
+.informationView  > td{
+	width:50%;
+	padding-left:10px;
+	padding-right:10px;
+	border:1px solid white;
+	vertical-align:top;
+}
+
+.informationView table {
+	width:100%;
+}
+
+
+.informationView table td {
+	width:33%;
+}
+
+#baseStats {
+	width:160px;
+	text-align: right;
+}
+
+#stats {
+	width:90px;
+	padding-right:20px;
+	text-align: right;
+}
+
+#resistances {
+	text-align: right;
+}
+
+#hoverInfo {
+	width:100%;
+}
+
+.views{
+	border-bottom:1px solid #ccc;
+	margin-left:-10px;
+	margin-right:-10px;
+	text-align:center;
+}
+
+.views span{
+	padding-right:10px;
+	padding-left:10px;
+	border-right:1px solid #ccc;
+	border-left:1px solid #ccc;
+	cursor:pointer;
+}
+
+.views span:hover{
+	color:red;
+}
+
+.views span.active{
+	color:#3F2;
+}
+
+.views .active:hover{
+	color:#3F2;
+}
+
+td .inactiveWindow {
+	display:none;
+}
+
+#equipment, #mastery {
+	height:160px;
+}
+ #inventory, #spellbook, #conduct{
+	height:160px;
+	overflow-y:scroll;
+	margin-right:-10px;
+}
+
+.equipItem {
+	cursor:pointer;
+}
+.equipItem:hover {
+	color:red;
+}
