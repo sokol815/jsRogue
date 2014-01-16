@@ -280,13 +280,17 @@ jsRL.main.prototype.enemyTurns = function(){
 				console.log('ranged attack player!');
 				var timeElapsed = curOnTurn.passTime('oneTurn');
 				if(timeElapsed != 0) {
-					this.screen.drawUI(curOnTurn);
+					this.screen.drawUI(this.entities[0]);
 				}
 			} else {
-				curOnTurn.move_entity(moveRes.x,moveRes.y);
+				if(curOnTurn.move_entity(moveRes.x,moveRes.y) > 0) {
+					this.screen.drawUI(this.entities[0]);
+				}
 			}
 		} else {
-			curOnTurn.move_entity(jsRL.rand(2) * 2 - 1,jsRL.rand(2) * 2 - 1);
+			if(curOnTurn.move_entity(jsRL.rand(2) * 2 - 1,jsRL.rand(2) * 2 - 1) > 0) {
+				this.screen.drawUI(this.entities[0]);
+			}
 		}
 
 		if(this.entities[0].life.cur < 1) {
