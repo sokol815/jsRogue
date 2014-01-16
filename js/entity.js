@@ -80,12 +80,13 @@ jsRL.entity.prototype.initVals = function(id,name,level,points,xSpot,ySpot,life,
 jsRL.entity.prototype.move_entity = function(dx,dy) {
 	if(this.loc.x + dx > -1 && this.loc.x + dx < game.world.map.length && this.loc.y + dy > -1 && this.loc.y + dy < game.world.map[0].length) {
 		var potential_cell = game.world.map[this.loc.x+dx][this.loc.y+dy];
+		var time_taken = 0;
 		if(potential_cell.occupier==-1 && potential_cell.passable) {
 			if(potential_cell.tile == '+') {
 				potential_cell.tile = '/';
 				potential_cell.passable = true;
 				potential_cell.transparent = true;
-				this.passTime((this.speed.cur));
+				time_taken = this.passTime((this.speed.cur));
 				if(this.id === 0) {
 					this.doSighting();
 				}
@@ -97,9 +98,9 @@ jsRL.entity.prototype.move_entity = function(dx,dy) {
 				this.loc.x += dx;
 				this.loc.y += dy;
 				if(dx != 0 && dy != 0) {
-					this.passTime(Math.floor(potential_cell.moveCost * 1.44 * (this.speed.cur)));
+					time_taken = this.passTime(Math.floor(potential_cell.moveCost * 1.44 * (this.speed.cur)));
 				} else {
-					this.passTime(Math.floor(potential_cell.moveCost * (this.speed.cur)));
+					time_taken = this.passTime(Math.floor(potential_cell.moveCost * (this.speed.cur)));
 				}
 				
 				if(this.id === 0) {
@@ -110,12 +111,14 @@ jsRL.entity.prototype.move_entity = function(dx,dy) {
 
 		} else if(potential_cell.occupier == 0 && this.id != 0) {
 			this.meleeAttack(game.entities[0]);
-			this.passTime(Math.floor(1.0 * (this.speed.cur)));
+			time_taken = this.passTime(Math.floor(1.0 * (this.speed.cur)));
 		} else if(potential_cell.occupier > 0 && this.id == 0) {
 			this.meleeAttack(game.entities[potential_cell.occupier]);
-			this.passTime(Math.floor(1.0 * (this.speed.cur)));
+			time_taken = this.passTime(Math.floor(1.0 * (this.speed.cur)));
 		}
+		return time_taken;
 	}
+	return 0;
 };
 
 jsRL.entity.prototype.equipItem = function(item,equipOn) {
@@ -188,84 +191,8 @@ jsRL.entity.prototype.passTime = function(amtTime) {
 	}
 	this.curTime += amtTime;
 	game.timeLoopUpdate(this.id,amtTime);
-	if(this.id == 0) {
-		this.updateDisplay();
-	}
-
-};
-
-jsRL.entity.prototype.updateDisplay = function() {
-	this.drawStats($('#baseStats'));
-	this.drawSecondaryStats($('#stats'));
-	this.drawResistance($('#resistances'));
-	this.drawEquipment();
-	this.drawStatuses($('#statusContainer'));
-	this.drawInventory($('#inventory'));
-};
-
-jsRL.entity.prototype.drawResistance = function(resContainer) {
-	resContainer.html('resistances<br />');
-	this.resistances.forEach(function(res){
-		resContainer.append('<div style="color:'+res.color+';">'+res.type+": "+(res.resistance)+'</div>');
-	});
-};
-
-jsRL.entity.prototype.drawInventory = function(inventoryContainer) {
-	for(var i = 0; i < this.inventory.length;i++) {
-		
-	}
-};
-
-jsRL.entity.prototype.drawStats = function(statsContainer) {
-	statsContainer.html(this.name+'<br />');
-	statsContainer.append("<span style='color:red;'>HP: "+this.life.cur+" / "+this.life.max+"</span><br />");
-	statsContainer.append("<span style='color:#0094FF;'>MP: "+this.mana.cur+" / "+this.mana.max+"</span><br />");
-	statsContainer.append("L: "+this.level+"(-"+this.expToLevel()+")<br />");
-	statsContainer.append("<span title='Action Speed: Higher Values result in faster turns.'>Spd: "+(100 - (this.speed.cur )) + "</span> <span title='attack Points: higher values overcome DF easier.'>AP: " +this.attackPoints+"</span><br />" );
-	var gold = this.getItemByName('gold');
-	if(gold === null) {
-		gold = 0;
-	} else {
-		gold = gold.value;
-	}
-	statsContainer.append("Turn: " + this.turnNum + " AU: " + gold +"<br />");
-	statsContainer.append("<span title='Defense: a higher value makes you less likely to be hit.'>DF: " + this.defense + "</span><span title='Damage Reduction: 3 points results in 1 point of physical damage reduction' " +
-		(this.dmgReduction > 0?
-			"style='color:yellow;'>[" + this.dmgReduction+"]":
-			">[0]") 
-		+ "</span>" );
-};
-
-jsRL.entity.prototype.drawStatuses = function(statusContainer) {
-	statusContainer.html('');
-	var first = true;
-	this.statuses.forEach(function(status){
-		statusContainer.append((first?'':', ')+'<span style="color:'+
-			(status.color!==''?status.color:'#CCC')+'">'+status.name+'</span>');
-			first = false;
-	});
-};
-
-jsRL.entity.prototype.drawSecondaryStats = function(statsContainer) {
-	statsContainer.html('stats<br />');
-	this.stats.forEach(function(stat) {
-		statsContainer.append('<div style="color:#FF0;">'+stat.short+": "+(stat.cur)+'</div>');
-	});
-};
-
-jsRL.entity.prototype.drawEquipment = function() {
-	var eqDiv = $('#equipment');
-	eqDiv.html('');
-	for(var i = 0; i < this.equipment.length;i++){
-		var show = '<span class="equipItem" type="'+this.equipment[i].type+'">'+this.equipment[i].name.padLeft(7,'&nbsp;')+'</span>: ';
-		if(this.equipment[i].item!=null) {
-			show += this.equipment[i].item.drawStats();
-		} else {
-			show += " - ";
-		}
-		show += "<br />";
-		eqDiv.append(show);
-	}
+	
+	return amtTime;
 };
 
 jsRL.entity.prototype.getResistance = function(resType) {
