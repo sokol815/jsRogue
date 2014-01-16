@@ -8,8 +8,9 @@ jsRL.main = function(){
 
 jsRL.main.prototype.init = function(){
 	this.generateDungeons(jsRL.rand(9999),20,80,28);
-	this.world = new jsRL.map(80,28,45,28);
+	this.world = new jsRL.map(80,28);
 	this.world.generate(this.dungeonStates[0].seed);
+	this.screen = new jsRL.screen(this.world.map.length, this.world.map[0].length, 45, 28, $('#mapView'), $('#hoverInfo'));
 
 	this.entities = [];
 	var player = new jsRL.entity(0,"Greg",1,10,8,8,15,50);
@@ -24,13 +25,12 @@ jsRL.main.prototype.init = function(){
 		this.timeLoopAddEntity(temp);
 		this.entities.push(temp);
 	}
-	this.world.resizeScreen(this.entities[0]);
-	this.world.drawMap();
+	this.screen.resizeScreen(this.entities[0],this.world.map);
 	var _this = this;
 	$(window).resize(function(e){
 		clearTimeout(timeOut);
 		timeOut = setTimeout(function(){
-			_this.world.resizeScreen(_this.entities[0]);
+			_this.screen.resizeScreen(_this.entities[0], _this.world.map);
 		},500);
 	});
 };
@@ -158,7 +158,7 @@ jsRL.main.prototype.normalGame = function(e){
 				tileLook.passable = true;
 				tileLook.transparent = true;
 			}
-			this.world.drawMap();
+			this.screen.drawScreen(this.world.map);
 			break;
 		case 83:
 		case 53:
@@ -225,11 +225,11 @@ jsRL.main.prototype.normalGame = function(e){
 	}
 
 	if(player_took_turn) {
-		this.world.centerView(this.entities[0].loc.x,this.entities[0].loc.y);
-		this.world.drawMap();
+		this.screen.centerView(this.entities[0].loc.x,this.entities[0].loc.y,this.world.map);
+		this.screen.drawScreen(this.world.map);
 		this.enemyTurns();
 		if(this.pointedAt != null) {
-			this.world.explainHover(this.pointedAt[0],this.pointedAt[1]);
+			this.screen.explainHover(this.pointedAt[0],this.pointedAt[1],this.world.map);
 		}
 	}
 };
@@ -298,7 +298,7 @@ jsRL.main.prototype.enemyTurns = function(){
 	if(this.state !== 0) {
 		this.loop(null);
 	} else {
-		this.world.drawMap();
+		this.screen.drawScreen(this.world.map);
 	}
 };
 

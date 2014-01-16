@@ -13,7 +13,7 @@ $(document).ready(function(){
 		var items = $(this).attr('id').split('_');
 		items[0] = items[0].substr(4);
 		game.pointedAt = [items[0],items[1]];
-		game.world.explainHover(items[0],items[1]);
+		game.screen.explainHover(items[0],items[1],game.world.map);
 	});
 	
 
