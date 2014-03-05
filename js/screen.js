@@ -1,6 +1,5 @@
-jsRL.screen = function(mapSizeX, mapSizeY, viewSizeX, viewSizeY, innerParent, hoverInfo) {
-	this.innerParent = 		innerParent;
-	this.hoverInfo = 		hoverInfo;
+jsRL.screen = function(mapSizeX, mapSizeY, viewSizeX, viewSizeY, ui) {
+	this.ui = 				ui;
 	this.mapSize = 			{'width':mapSizeX,'height':mapSizeY};
 	this.screenMapping = 	[];
 	this.topLeft = 			{'x':0,'y':0};
@@ -10,24 +9,24 @@ jsRL.screen = function(mapSizeX, mapSizeY, viewSizeX, viewSizeY, innerParent, ho
 
 jsRL.screen.prototype.initScreen = function() {
 	this.screenMapping = Array(this.viewSize.width);
-	this.innerParent.html('');
+	this.ui.innerParent.html('');
 	for(var y = 0; y < this.viewSize.height;y++) {
 		for(var x = 0; x < this.viewSize.width;x++) {
 			if(y === 0) {
 				this.screenMapping[x] = Array(this.viewSize.height);
 			}
-			this.innerParent.append('<span class="mapCell" id="cell'+x+'_'+y+'">&nbsp;</span>');
+			this.ui.innerParent.append('<span class="mapCell" id="cell'+x+'_'+y+'">&nbsp;</span>');
 			this.screenMapping[x][y] = {'dom':$('#cell'+x+'_'+y),'color':'','bkdColor':'','tile':'&nbsp;','id':'cell'+x+"_"+y};
 		}
-		this.innerParent.append("<br />");
+		this.ui.innerParent.append("<br />");
 	}
 };
 
 jsRL.screen.prototype.resizeScreen = function(centerOn, map) {
-	this.viewSize.width  =	Math.floor(this.innerParent.innerWidth() / this.fontSize.width);
-	console.log(this.innerParent.innerWidth(),this.fontSize.width,this.innerParent / this.fontSize.width);
-	if(this.viewSize.width > this.innerParent / 2 / this.fontSize.width) {
-		this.viewSize.width = Math.floor(this.innerParent / 2 / this.fontSize.width);
+	this.viewSize.width  =	Math.floor(this.ui.innerParent.innerWidth() / this.fontSize.width);
+	console.log(this.ui.innerParent.innerWidth(),this.fontSize.width,this.ui.innerParent / this.fontSize.width);
+	if(this.viewSize.width > this.ui.innerParent / 2 / this.fontSize.width) {
+		this.viewSize.width = Math.floor(this.ui.innerParent / 2 / this.fontSize.width);
 	}
 	this.viewSize.height = 28;
 	if(this.viewSize.width > map.length){
@@ -129,13 +128,13 @@ jsRL.screen.prototype.renderCell = function(cell) {
 };
 
 jsRL.screen.prototype.explainHover = function(x, y, map) {
-	this.hoverInfo.html('&nbsp;');
+	this.ui.hoverInfo.html('&nbsp;');
 	x = parseInt(x) + this.topLeft.x;
 	y = parseInt(y) + this.topLeft.y;
 	if(x < 0 || y < 0 || x >= this.mapSize.width || y >= this.mapSize.height) {
-		this.hoverInfo.html('&nbsp;');
+		this.ui.hoverInfo.html('&nbsp;');
 	} else {
-		this.hoverInfo.html(this.explainTile(map[x][y],x,y));
+		this.ui.hoverInfo.html(this.explainTile(map[x][y],x,y));
 	}
 };
 
@@ -156,5 +155,78 @@ jsRL.screen.prototype.explainTile = function(cell, x, y) {
 			case '^': response += 'mountains';		break;
 		}
 	}
-	return response + " ("+cell.moveCost+") ["+cell.djikstra.dist.toFixed(1)+"]";
+	return response + " ("+cell.moveCost+") ["+cell.djikstra.attack.toFixed(1)+"]";
+};
+
+jsRL.screen.prototype.drawUI = function(entity){
+	this.drawStats(this.ui.baseStats, entity);
+	this.drawSecondaryStats(this.ui.stats, entity);
+	this.drawResistance(this.ui.resistances, entity);
+	this.drawEquipment(this.ui.equipment, entity);
+	this.drawStatuses(this.ui.statusContainer, entity);
+	this.drawInventory(this.ui.inventory, entity);
+};
+
+jsRL.screen.prototype.drawResistance = function(resContainer, entity) {
+	resContainer.html('resistances<br />');
+	entity.resistances.forEach(function(res){
+		resContainer.append('<div style="color:'+res.color+';">'+res.type+": "+(res.resistance)+'</div>');
+	});
+};
+
+jsRL.screen.prototype.drawInventory = function(inventoryContainer, entity) {
+	for(var i = 0; i < entity.inventory.length;i++) {
+		
+	}
+};
+
+jsRL.screen.prototype.drawStats = function(statsContainer, entity) {
+	statsContainer.html(entity.name+'<br />');
+	statsContainer.append("<span style='color:red;'>HP: "+entity.life.cur+" / "+entity.life.max+"</span><br />");
+	statsContainer.append("<span style='color:#0094FF;'>MP: "+entity.mana.cur+" / "+entity.mana.max+"</span><br />");
+	statsContainer.append("L: "+entity.level+"(-"+entity.expToLevel()+")<br />");
+	statsContainer.append("<span title='Action Speed: Higher Values result in faster turns.'>Spd: "+(100 - (entity.speed.cur )) + "</span> <span title='attack Points: higher values overcome DF easier.'>AP: " +entity.attackPoints+"</span><br />" );
+	var gold = entity.getItemByName('gold');
+	if(gold === null) {
+		gold = 0;
+	} else {
+		gold = gold.value;
+	}
+	statsContainer.append("Turn: " + entity.turnNum + " AU: " + gold +"<br />");
+	statsContainer.append("<span title='Defense: a higher value makes you less likely to be hit.'>DF: " + entity.defense + "</span><span title='Damage Reduction: 3 points results in 1 point of physical damage reduction' " +
+		(entity.dmgReduction > 0?
+			"style='color:yellow;'>[" + entity.dmgReduction+"]":
+			">[0]") 
+		+ "</span>" );
+};
+
+jsRL.screen.prototype.drawStatuses = function(statusContainer, entity) {
+	statusContainer.html('');
+	var first = true;
+	entity.statuses.forEach(function(status){
+		statusContainer.append((first?'':', ')+'<span style="color:'+
+			(status.color!==''?status.color:'#CCC')+'">'+status.name+'</span>');
+			first = false;
+	});
+};
+
+jsRL.screen.prototype.drawSecondaryStats = function(statsContainer, entity) {
+	statsContainer.html('stats<br />');
+	entity.stats.forEach(function(stat) {
+		statsContainer.append('<div style="color:#FF0;">'+stat.short+": "+(stat.cur)+'</div>');
+	});
+};
+
+jsRL.screen.prototype.drawEquipment = function(equipmentContainer, entity) {
+	equipmentContainer.html('');
+	for(var i = 0; i < entity.equipment.length;i++){
+		var show = '<span class="equipItem" type="'+entity.equipment[i].type+'">'+entity.equipment[i].name.padLeft(7,'&nbsp;')+'</span>: ';
+		if(entity.equipment[i].item!=null) {
+			show += entity.equipment[i].item.drawStats();
+		} else {
+			show += " - ";
+		}
+		show += "<br />";
+		equipmentContainer.append(show);
+	}
 };

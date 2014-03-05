@@ -10,13 +10,24 @@ jsRL.main.prototype.init = function(){
 	this.generateDungeons(jsRL.rand(9999),20,80,28);
 	this.world = new jsRL.map(80,28);
 	this.world.generate(this.dungeonStates[0].seed);
-	this.screen = new jsRL.screen(this.world.map.length, this.world.map[0].length, 45, 28, $('#mapView'), $('#hoverInfo'));
+	var ui = {
+		innerParent:		$('#mapView'),
+		hoverInfo: 			$('#hoverInfo'),
+		baseStats: 			$('#baseStats'),
+		stats: 				$('#stats'),
+		resistances: 		$('#resistances'),
+		equipment: 			null,
+		statusContainer:	$('#statusContainer'),
+		inventory:			$('#inventory'),
+		equipment: 			$('#equipment')
+	};
+	this.screen = new jsRL.screen(this.world.map.length, this.world.map[0].length, 45, 28, ui);
 
 	this.entities = [];
 	var player = new jsRL.entity(0,"Greg",1,10,8,8,15,50);
 	this.timeLoopAddEntity(player);
 	player.loc = this.world.placeEntity(0);
-	player.updateDisplay();
+	this.screen.drawUI(player);
 	this.entities.push(player);
 	this.entities[0].doSighting();
 	this.world.djikstra();
@@ -144,7 +155,7 @@ jsRL.main.prototype.normalGame = function(e){
 		console.log(help_string);
 	}
 	message = "";
-	var player_took_turn = false;
+	var player_took_turn = 0;
 	switch(e.keyCode)
 	{
 		case 80: //p
@@ -163,8 +174,8 @@ jsRL.main.prototype.normalGame = function(e){
 		case 83:
 		case 53:
 		case 101:
-		case 190: this.entities[0].passTime('oneTurn');
-		player_took_turn = true;
+		case 190: 
+			player_took_turn = this.entities[0].passTime('oneTurn');
 			break;
 		case 32: //?
 		case 27: //escape
@@ -174,57 +185,50 @@ jsRL.main.prototype.normalGame = function(e){
 		case 52:
 		case 65:
 		case 100:
-			this.entities[0].move_entity(-1,0);
-			player_took_turn = true;
+			player_took_turn = this.entities[0].move_entity(-1,0);
 			break;
 		case 39: //move right
 		case 54:
 		case 68:
 		case 102:
-			this.entities[0].move_entity(1,0);
-			player_took_turn = true;
+			player_took_turn = this.entities[0].move_entity(1,0);
 			break;
 		case 104:
 		case 56:
 		case 87:
 		case 38: //move up
-			this.entities[0].move_entity(0,-1);
-			player_took_turn = true;
+			player_took_turn = this.entities[0].move_entity(0,-1);
 			break;
 		case 98:
 		case 88:
 		case 50:
 		case 40: //move down
-			this.entities[0].move_entity(0,1);
-			player_took_turn = true;
+			player_took_turn = this.entities[0].move_entity(0,1);
 			break;
 		case 49:
 		case 90:
 		case 97: //down left
-			this.entities[0].move_entity(-1,1);
-			player_took_turn = true;
+			player_took_turn = this.entities[0].move_entity(-1,1);
 			break;
 		case 51:
 		case 67:
 		case 99: //down right
-			this.entities[0].move_entity(1,1);
-			player_took_turn = true;
+			player_took_turn = this.entities[0].move_entity(1,1);
 			break;
 		case 55:
 		case 81:
 		case 103: //up left
-			this.entities[0].move_entity(-1,-1);
-			player_took_turn = true;
+			player_took_turn = this.entities[0].move_entity(-1,-1);
 			break;
 		case 57:
 		case 69:
 		case 105: //up right
-			this.entities[0].move_entity(1,-1);
-			player_took_turn = true;
+			player_took_turn = this.entities[0].move_entity(1,-1);
 			break;
 	}
 
-	if(player_took_turn) {
+	if(player_took_turn != 0) {
+		this.screen.drawUI(this.entities[0]);
 		this.screen.centerView(this.entities[0].loc.x,this.entities[0].loc.y,this.world.map);
 		this.screen.drawScreen(this.world.map);
 		this.enemyTurns();
@@ -274,12 +278,19 @@ jsRL.main.prototype.enemyTurns = function(){
 			var moveRes = this.world.lowestDjikstra(curOnTurn.loc.x,curOnTurn.loc.y,attackDes,fearDes,curOnTurn.id);
 			if(justAttack) {
 				console.log('ranged attack player!');
-				curOnTurn.passTime('oneTurn');
+				var timeElapsed = curOnTurn.passTime('oneTurn');
+				if(timeElapsed != 0) {
+					this.screen.drawUI(this.entities[0]);
+				}
 			} else {
-				curOnTurn.move_entity(moveRes.x,moveRes.y);
+				if(curOnTurn.move_entity(moveRes.x,moveRes.y) > 0) {
+					this.screen.drawUI(this.entities[0]);
+				}
 			}
 		} else {
-			curOnTurn.move_entity(jsRL.rand(2) * 2 - 1,jsRL.rand(2) * 2 - 1);
+			if(curOnTurn.move_entity(jsRL.rand(2) * 2 - 1,jsRL.rand(2) * 2 - 1) > 0) {
+				this.screen.drawUI(this.entities[0]);
+			}
 		}
 
 		if(this.entities[0].life.cur < 1) {
