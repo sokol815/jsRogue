@@ -345,7 +345,7 @@ jsRL.entity.prototype.createResistances = function(ph,c,f,po,d,a) {
 };
 
 jsRL.entity.prototype.doSighting = function() {
-	//var start = new Date().getTime();
+	var start = new Date().getTime();
 	window.game.world.deSight();
 	var numComps = 360;
 	var sightStep = 0.05;
@@ -419,9 +419,8 @@ jsRL.entity.prototype.doSighting = function() {
 			}
 		}
 	}
-	/*var end = new Date().getTime();
-	end -= start;
-	console.log('finished in '+end+'ms.');*/
+	var end = new Date().getTime() - start;
+	console.log('sight finished in '+end+'ms.');
 };
 
 jsRL.entity.prototype.formCreature = function(args) {
@@ -502,5 +501,5 @@ jsRL.entity.prototype.getLongestAttack = function(){
 };
 
 jsRL.entity.prototype.toString = function() {
-	return this.name + " <span style='color:red;'>["+this.life.cur+'/'+this.life.max+']</span> '+this.curTime + ' ['+game.world.map[this.loc.x][this.loc.y].djikstra.fear+']';
+	return this.name + " <span style='color:red;'>["+this.life.cur+'/'+this.life.max+']</span> '+this.curTime + ' ['+game.world.map[this.loc.x][this.loc.y].djikstra.attack+']';
 }

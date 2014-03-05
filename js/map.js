@@ -84,7 +84,7 @@ jsRL.map.prototype.clearDjikstra = function() {
 	}
 };
 
-jsRL.map.prototype.customDjikstra = function(type,goals) {
+/*jsRL.map.prototype.customDjikstra = function(type,goals) {
 	for(var x = 0; x < this.mapSize.width;x++) {
 		for(var y = 0; y < this.mapSize.height;y++) {
 			this.map[x][y].djikstra[type] = 99999;
@@ -95,14 +95,9 @@ jsRL.map.prototype.customDjikstra = function(type,goals) {
 	}
 	var typeUse = {'type':type,'changed':true};
 
-	this.spreadDjikstra(typeUse,this.map,{'x':(this.mapSize.width/2) >> 0,'y':(this.mapSize.height/2) >> 0},{
-		'left':0,
-		'top':0,
-		'right':this.mapSize.width,
-		'bottom':this.mapSize.height
-	});
+	this.spreadDjikstra(typeUse, this.map, {'x':goals[0].x,'y':goals[0].y});
 
-};
+};*/
 
 jsRL.map.prototype.djikstra = function(){
 	var _this = this;
@@ -125,16 +120,16 @@ jsRL.map.prototype.djikstra = function(){
 	});
 
 	var checkTypes = [
-						{'type':'attack',	'changed':true},
-						{'type':'clump',	'changed':true},
-						{'type':'item',		'changed':true},
-						{'type':'fear',		'changed':true,'after':'reverse','base':'attack'},
-						{'type':'spread',	'changed':true,'after':'reverse','base':'clump'}
-					];
+		{'type':'attack',	'changed':true},
+		{'type':'clump',	'changed':true},
+		{'type':'item',		'changed':true},
+		{'type':'fear',		'changed':true,'after':'reverse','base':'attack'},
+		{'type':'spread',	'changed':true,'after':'reverse','base':'clump'}
+	];
 
 	checkTypes.forEach(function(type) {
 		if(type.base === undefined) {
-			_this.spreadDjikstra(type,_this.map,game.entities[0].loc);
+			_this.spreadDjikstra(type.type,_this.map,game.entities[0].loc);
 		}
 		if(type.after !== undefined) {
 			switch(type.after) {
@@ -146,114 +141,64 @@ jsRL.map.prototype.djikstra = function(){
 	});
 };
 
-jsRL.map.prototype.makeBounds = function(map,centeredAt,padding) {
-	var bounds = {'left':0,'right':0,'top':0,'bottom':0};
-	bounds.left =		Math.max(0,centeredAt.x - padding);
-	bounds.right =		Math.min(map.length,bounds.left + (padding * 2) + 1);
-	bounds.left =		Math.max(0,bounds.right - (padding * 2));
-
-	bounds.top =		Math.max(0,centeredAt.y - padding);
-	bounds.bottom =		Math.min(map[0].length,bounds.top + (padding * 2) + 1);
-	bounds.top =		Math.max(0,bounds.bottom - (padding * 2));
-	return bounds;
-};
-
 jsRL.map.prototype.invertDjikstra = function(map,intensity,centeredAt,type,baseType) {
-	var bounds = this.makeBounds(map,centeredAt,this.djikstraPadding);
-	for(var x = bounds.left; x < bounds.right;x++){
-		for(var y = bounds.top; y < bounds.bottom;y++){
+	var lowest_goal = 9999;
+	var lowest_spot = {'x':-1,'y':-1};
+	for(var x = 0; x < map.length;x++){
+		for(var y = 0; y < map[0].length;y++){
 			if(map[x][y].djikstra[baseType]!=99999) {
+				if( map[x][y].djikstra[baseType] * intensity < lowest_goal){
+					lowest_goal =  map[x][y].djikstra[baseType] * intensity;
+					lowest_spot = {'x':x,'y':y};
+				}
 				map[x][y].djikstra[type] = map[x][y].djikstra[baseType] * intensity;
 			} else {
 				map[x][y].djikstra[type] = 99999;
 			}
 		}
 	}
-	this.spreadDjikstra(type,map,centeredAt);
-};
-
-jsRL.map.prototype.spreadDjikstra = function(type,map,centeredAt,bound) {
-	//console.log('start',type);
-	if(bound == undefined) {
-		var bounds = this.makeBounds(map,centeredAt,this.djikstraPadding);
-	} else {
-		var bounds = bound;
-	}
-	var run = 0;
-	var ret = 99999;
-	while(type.changed && run < 10000){
-	//	console.log('running',run,type);
-		var change = false;
-		switch(run%4) {
-			case 0:
-				for(var x = bounds.left; x < bounds.right;x++){
-					for(var y = bounds.top; y < bounds.bottom;y++){
-						if(this.doIndiv(map,x,y,type.type)) {
-							change = true;
-						}
-					}
-				}
-			break;
-			case 1:
-				for(var y = bounds.top; y < bounds.bottom;y++){
-					for(var x = bounds.left; x < bounds.right;x++){
-						if(this.doIndiv(map,x,y,type.type)) {
-							change = true;
-						}
-					}
-				}
-			break;
-			case 2:
-				for(var y = bounds.bottom-1; y > bounds.top-1;y--){
-					for(var x = bounds.right - 1; x > bounds.left-1;x--){
-						if(this.doIndiv(map,x,y,type.type)) {
-							change = true;
-						}
-					}
-				}
-			break;
-			case 3:
-				for(var x = bounds.right - 1; x > bounds.left-1;x--){
-					for(var y = bounds.bottom-1; y > bounds.top-1;y--){
-						if(this.doIndiv(map,x,y,type.type)) {
-							change = true;
-						}
-					}
-				}
-			break;
-		}
-		type.changed = change;
-		run++;
+	if(lowest_spot.x != -1){
+		this.spreadDjikstra(type,map,lowest_spot);
 	}
 };
 
-jsRL.map.prototype.doIndiv = function(map,x,y,type) {
+jsRL.map.prototype.spreadDjikstra = function(type,map,startLoc) {
+	var start = new Date().getTime();
+	var temp = [startLoc];
+	var curSpot = '';
+	var totRuns = 0;
+	while(temp.length > 0){
+		totRuns++;
+		curSpot = temp.shift();
+		this.doIndiv(map,curSpot.x,curSpot.y,type,temp);
+	}
+	var end = new Date().getTime() - start;
+	console.log('djikstra '+type+' ran in: '+end+'ms. '+totRuns);
+};
+
+jsRL.map.prototype.doIndiv = function(map, x, y, type, stack) {
 	if(map[x][y].passable) {
-		ret = this.getLowestNeighbor(map,x,y,type);
-		if(ret != 99999) {
-			map[x][y].djikstra[type] = ret;
-			return true;
-		}
+		this.affectNeighbors(map, x, y, type, stack);
+		return true;
 	}
 	return false;
 };
 
-jsRL.map.prototype.getLowestNeighbor = function(map,x,y,type,debug){
+jsRL.map.prototype.affectNeighbors = function(map, x, y, type, stack){
 	window.nRuns++;
-	var min = 99999;
 	var dx,dy,dist;
 	for(var i = 0; i < jsRL.xGos.length;i++) {
 		dx = jsRL.xGos[i];
 		dy = jsRL.yGos[i];
 		dist = jsRL.dist[i];
-		if(jsRL.checkInBounds(map,x+dx,y+dy)) {
-			var comp = (map[x+dx][y+dy].djikstra[type] + (map[x][y].moveCost* dist));
-			if( comp < map[x][y].djikstra[type] && comp < min) {
-				min = comp;
+		if(jsRL.checkInBounds(map,x+dx,y+dy) && map[x+dx][y+dy].passable) {
+			var comp = (map[x+dx][y+dy].djikstra[type]);
+			if( comp > map[x][y].djikstra[type] + (map[x+dx][y+dy].moveCost * dist) ) {
+				map[x+dx][y+dy].djikstra[type] = map[x][y].djikstra[type] + (map[x+dx][y+dy].moveCost * dist);
+				stack.push({'x':x+dx,'y':y+dy});
 			}
 		}
 	}
-	return min;
 };
 
 jsRL.map.prototype.lowestDjikstra = function(locX,locY,attackStr,fearStr,id) {
@@ -358,7 +303,7 @@ jsRL.map.prototype.populateRandomMap = function() {
 		}
 	}
 
-	this.customDjikstra('dist',[this.getValidRandomLocation()]);
+	//this.customDjikstra('dist',[this.getValidRandomLocation()]);
 	this.populateDungeon(2);	
 };
 

@@ -155,7 +155,7 @@ jsRL.screen.prototype.explainTile = function(cell, x, y) {
 			case '^': response += 'mountains';		break;
 		}
 	}
-	return response + " ("+cell.moveCost+") ["+cell.djikstra.dist.toFixed(1)+"]";
+	return response + " ("+cell.moveCost+") ["+cell.djikstra.attack.toFixed(1)+"]";
 };
 
 jsRL.screen.prototype.drawUI = function(entity){
